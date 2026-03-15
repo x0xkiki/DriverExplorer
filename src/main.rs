@@ -7,6 +7,14 @@ mod export;
 
 use std::env;
 
+/// Detach from the console window when running in GUI mode
+fn detach_console() {
+    use windows::Win32::System::Console::FreeConsole;
+    unsafe {
+        let _ = FreeConsole();
+    }
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
 
@@ -14,7 +22,7 @@ fn main() {
     let is_gui_mode = args.len() == 1;
 
     if is_gui_mode {
-        // Run GUI (console window will be hidden by manifest)
+        detach_console();
         if let Err(e) = gui::run() {
             eprintln!("GUI error: {}", e);
             std::process::exit(1);
