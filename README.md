@@ -2,6 +2,9 @@
 
 A comprehensive Windows kernel driver analysis and management tool written in Rust. Combines real-time driver enumeration, digital signature verification, service control, and multi-format exports into a single lightweight (~4 MB) native binary with both GUI and CLI interfaces.
 
+![Project Screenshot](./images/example.png)
+
+
 ## Features
 
 ### Driver Analysis
