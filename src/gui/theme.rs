@@ -1,4 +1,5 @@
-use egui::{Color32, Visuals};
+use egui::{Color32, FontData, FontDefinitions, FontFamily, Visuals};
+use std::{env, fs, path::PathBuf};
 
 pub fn apply_theme(ctx: &egui::Context) {
     let mut visuals = Visuals::dark();
@@ -28,6 +29,8 @@ pub fn apply_theme(ctx: &egui::Context) {
     // Apply visuals
     ctx.set_visuals(visuals);
 
+    configure_fonts(ctx);
+
     // Set font
     let mut style = (*ctx.style()).clone();
     style.text_styles.insert(
@@ -44,6 +47,57 @@ pub fn apply_theme(ctx: &egui::Context) {
     );
 
     ctx.set_style(style);
+}
+
+fn configure_fonts(ctx: &egui::Context) {
+    let mut fonts = FontDefinitions::default();
+    install_cjk_fallback(&mut fonts);
+    ctx.set_fonts(fonts);
+}
+
+fn install_cjk_fallback(fonts: &mut FontDefinitions) {
+    for path in windows_cjk_font_candidates() {
+        if try_register_font(fonts, "windows_cjk_fallback", path) {
+            return;
+        }
+    }
+}
+
+fn try_register_font(fonts: &mut FontDefinitions, font_name: &str, path: PathBuf) -> bool {
+    let Ok(bytes) = fs::read(&path) else {
+        return false;
+    };
+
+    fonts
+        .font_data
+        .insert(font_name.to_owned(), FontData::from_owned(bytes).into());
+
+    for family in [FontFamily::Proportional, FontFamily::Monospace] {
+        if let Some(entries) = fonts.families.get_mut(&family) {
+            if !entries.iter().any(|entry| entry == font_name) {
+                // Keep egui's default Latin fonts first and use the Windows font as CJK fallback.
+                entries.push(font_name.to_owned());
+            }
+        }
+    }
+    true
+}
+
+fn windows_cjk_font_candidates() -> impl Iterator<Item = PathBuf> {
+    let windows_dir = env::var_os("WINDIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(r"C:\Windows"));
+    let fonts_dir = windows_dir.join("Fonts");
+
+    [
+        "simhei.ttf",
+        "simsunb.ttf",
+        "msyh.ttc",
+        "simsun.ttc",
+        "SimsunExtG.ttf",
+    ]
+    .into_iter()
+    .map(move |file| fonts_dir.join(file))
 }
 
 pub struct Colors;

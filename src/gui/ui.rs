@@ -1272,7 +1272,7 @@ fn draw_driver_table(ui: &mut egui::Ui, state: &mut AppState, actions: &mut Vec<
 fn detail_row(ui: &mut egui::Ui, label: &str, value: &str) {
     ui.horizontal(|ui| {
         ui.label(RichText::new(label).strong().size(11.0));
-        ui.monospace(RichText::new(value).size(11.0));
+        ui.label(RichText::new(value).size(11.0));
     });
 }
 
