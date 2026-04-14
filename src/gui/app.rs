@@ -1,4 +1,5 @@
 use super::state::{AppState, GuiAction, LoadingState, StatusKind};
+use super::theme;
 use super::ui;
 use crate::drivers;
 use crate::export::{ExportFormat, ExportOptions};
@@ -11,6 +12,7 @@ use std::thread;
 pub struct DriverExplorerApp {
     state: AppState,
     is_elevated: bool,
+    last_dark_mode: bool,
 }
 
 impl DriverExplorerApp {
@@ -18,6 +20,7 @@ impl DriverExplorerApp {
         let mut app = Self {
             state: AppState::new(),
             is_elevated: Self::is_running_as_admin(),
+            last_dark_mode: true,
         };
 
         // Load drivers on startup
@@ -791,9 +794,6 @@ impl DriverExplorerApp {
 
 impl eframe::App for DriverExplorerApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Force dark mode regardless of OS theme
-        ctx.set_theme(egui::Theme::Dark);
-
         // Check if drivers have finished loading
         self.state.check_receiver();
 
@@ -817,6 +817,12 @@ impl eframe::App for DriverExplorerApp {
 
         // Process all actions
         self.process_actions(ctx, all_actions);
+
+        if self.last_dark_mode != self.state.dark_mode {
+            theme::apply_theme(ctx, self.state.dark_mode);
+            self.last_dark_mode = self.state.dark_mode;
+            ctx.request_repaint();
+        }
 
         // Request repaint for loading state or auto-refresh
         if matches!(self.state.loading_state, LoadingState::Loading) || self.state.auto_refresh {

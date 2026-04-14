@@ -344,8 +344,8 @@ pub fn run() -> Result<()> {
         "DriverExplorer",
         options,
         Box::new(|cc| {
-            // Apply custom theme
-            theme::apply_theme(&cc.egui_ctx);
+            // Apply custom theme and font setup
+            theme::initialize_theme(&cc.egui_ctx, true);
             Ok(Box::new(app::DriverExplorerApp::new(cc)))
         }),
     )

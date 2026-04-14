@@ -1,9 +1,10 @@
 use super::state::{AppState, GuiAction, SortColumn, SortOrder};
-use super::theme::Colors;
+use super::theme::{palette, Colors};
 use egui::{Button, Color32, RichText};
 
 /// Create text with mnemonic character underlined for Alt+key menu access
-fn mnemonic_text(text: &str, mnemonic: char) -> egui::WidgetText {
+fn mnemonic_text(text: &str, mnemonic: char, dark_mode: bool) -> egui::WidgetText {
+    let theme = palette(dark_mode);
     let lower = text.to_lowercase();
     let m_lower = mnemonic.to_ascii_lowercase();
     if let Some(pos) = lower.find(m_lower) {
@@ -15,7 +16,7 @@ fn mnemonic_text(text: &str, mnemonic: char) -> egui::WidgetText {
         };
         let underlined = egui::TextFormat {
             font_id: font,
-            underline: egui::Stroke::new(1.0, Color32::from_rgb(180, 180, 200)),
+            underline: egui::Stroke::new(1.0, theme.mnemonic_underline),
             ..Default::default()
         };
         let end = pos + text[pos..].chars().next().map_or(1, |c| c.len_utf8());
@@ -38,6 +39,8 @@ pub fn draw_toolbar(
     is_elevated: bool,
 ) -> Vec<GuiAction> {
     let mut actions = Vec::new();
+    let theme = palette(state.dark_mode);
+    let dark_mode = state.dark_mode;
 
     // --- Detect Alt+key for menu mnemonics ---
     let mut pending_menu = state.pending_menu.take();
@@ -96,7 +99,7 @@ pub fn draw_toolbar(
                     let popup_id = menu_ids[$idx];
                     let is_open = $ui.memory(|mem| mem.is_popup_open(popup_id));
                     let response =
-                        $ui.selectable_label(is_open, mnemonic_text($label, $mnemonic));
+                        $ui.selectable_label(is_open, mnemonic_text($label, $mnemonic, dark_mode));
 
                     if response.clicked() {
                         if is_open {
@@ -217,6 +220,7 @@ pub fn draw_toolbar(
                             &mut state.mark_non_microsoft,
                             "Mark Non-Microsoft Drivers",
                         );
+                        ui.checkbox(&mut state.dark_mode, "Dark Mode");
                         let mut hide_ms = !state.show_microsoft;
                         if ui
                             .checkbox(&mut hide_ms, "Hide Microsoft Drivers")
@@ -404,7 +408,7 @@ pub fn draw_toolbar(
 
     // --- Toolbar ---
     egui::TopBottomPanel::top("toolbar")
-        .frame(egui::Frame::NONE.fill(Color32::from_rgb(18, 18, 28)).inner_margin(egui::Margin::symmetric(8, 6)))
+        .frame(egui::Frame::NONE.fill(theme.toolbar_bg).inner_margin(egui::Margin::symmetric(8, 6)))
         .show(ctx, |ui| {
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing = egui::vec2(6.0, 0.0);
@@ -489,19 +493,23 @@ pub fn draw_toolbar(
 
             match &state.loading_state {
                 super::state::LoadingState::Loading => {
-                    ui.label(RichText::new("Loading...").color(Colors::accent()).size(11.0));
+                    ui.label(
+                        RichText::new("Loading...")
+                            .color(Colors::accent(state.dark_mode))
+                            .size(11.0),
+                    );
                 }
                 super::state::LoadingState::Loaded => {
                     ui.label(
                         RichText::new(format!("{} drivers", state.drivers.len()))
-                            .color(Colors::success())
+                            .color(Colors::success(state.dark_mode))
                             .size(11.0),
                     );
                 }
                 super::state::LoadingState::Error(e) => {
                     ui.label(
                         RichText::new(format!("Error: {}", e))
-                            .color(Colors::error())
+                            .color(Colors::error(state.dark_mode))
                             .size(11.0),
                     );
                 }
@@ -513,7 +521,7 @@ pub fn draw_toolbar(
                     ui.label(
                         RichText::new("\u{1F6E1} Administrator")
                             .size(11.0)
-                            .color(Colors::success())
+                            .color(Colors::success(state.dark_mode))
                             .strong(),
                     );
                 } else {
@@ -521,7 +529,7 @@ pub fn draw_toolbar(
                         .button(
                             RichText::new("Run as Administrator")
                                 .size(11.0)
-                                .color(Colors::warning()),
+                                .color(Colors::warning(state.dark_mode)),
                         )
                         .on_hover_text("Restart with administrator privileges (Ctrl+F11)")
                         .clicked()
@@ -565,7 +573,7 @@ pub fn draw_toolbar(
                     state.drivers.len()
                 ))
                 .size(11.0)
-                .color(Color32::from_rgb(150, 150, 170)),
+                .color(theme.muted_text),
             );
         });
     });
@@ -576,27 +584,27 @@ pub fn draw_toolbar(
             state.tick_status();
             if let Some(ref msg) = state.status_message {
                 let color = match msg.kind {
-                    super::state::StatusKind::Info => Colors::accent(),
-                    super::state::StatusKind::Success => Colors::success(),
-                    super::state::StatusKind::Error => Colors::error(),
+                    super::state::StatusKind::Info => Colors::accent(state.dark_mode),
+                    super::state::StatusKind::Success => Colors::success(state.dark_mode),
+                    super::state::StatusKind::Error => Colors::error(state.dark_mode),
                 };
                 ui.label(RichText::new(&msg.text).size(11.0).color(color));
             } else {
                 let count = state.selection_count();
                 if count > 1 {
-                    ui.label(
-                        RichText::new(format!("{} items selected", count))
-                            .size(11.0)
-                            .color(Color32::from_rgb(150, 150, 170)),
-                    );
-                } else if let Some(driver) = state.selected() {
-                    ui.label(
-                        RichText::new(&driver.file_path)
-                            .size(11.0)
-                            .color(Color32::from_rgb(150, 150, 170)),
-                    );
+                        ui.label(
+                            RichText::new(format!("{} items selected", count))
+                                .size(11.0)
+                                .color(theme.muted_text),
+                        );
+                    } else if let Some(driver) = state.selected() {
+                        ui.label(
+                            RichText::new(&driver.file_path)
+                                .size(11.0)
+                                .color(theme.muted_text),
+                        );
+                    }
                 }
-            }
         });
     });
 
@@ -661,6 +669,7 @@ pub fn draw_toolbar(
 fn draw_driver_manager(ctx: &egui::Context, state: &mut AppState) -> Vec<GuiAction> {
     use super::state::{START_TYPES, DRIVER_TYPES};
     let mut actions = Vec::new();
+    let theme = palette(state.dark_mode);
     if !state.show_driver_manager {
         return actions;
     }
@@ -744,7 +753,11 @@ fn draw_driver_manager(ctx: &egui::Context, state: &mut AppState) -> Vec<GuiActi
                         Button::new(
                             RichText::new("Load (Register + Start)")
                                 .size(12.0)
-                                .color(if has_path { Colors::success() } else { Color32::GRAY }),
+                                .color(if has_path {
+                                    Colors::success(state.dark_mode)
+                                } else {
+                                    Color32::GRAY
+                                }),
                         ),
                     )
                     .on_hover_text("Register the service and immediately start it")
@@ -759,7 +772,11 @@ fn draw_driver_manager(ctx: &egui::Context, state: &mut AppState) -> Vec<GuiActi
                         Button::new(
                             RichText::new("Unload (Stop + Unregister)")
                                 .size(12.0)
-                                .color(if has_name { Colors::error() } else { Color32::GRAY }),
+                                .color(if has_name {
+                                    Colors::error(state.dark_mode)
+                                } else {
+                                    Color32::GRAY
+                                }),
                         ),
                     )
                     .on_hover_text("Stop the service and delete it")
@@ -803,9 +820,9 @@ fn draw_driver_manager(ctx: &egui::Context, state: &mut AppState) -> Vec<GuiActi
                 ui.horizontal(|ui| {
                     ui.label(RichText::new("Status:").size(12.0).strong());
                     let color = match status.as_str() {
-                        "Running" => Colors::success(),
-                        "Stopped" => Colors::error(),
-                        _ => Colors::warning(),
+                        "Running" => Colors::success(state.dark_mode),
+                        "Stopped" => Colors::error(state.dark_mode),
+                        _ => Colors::warning(state.dark_mode),
                     };
                     ui.label(RichText::new(status).size(12.0).strong().color(color));
                 });
@@ -833,14 +850,14 @@ fn draw_driver_manager(ctx: &egui::Context, state: &mut AppState) -> Vec<GuiActi
                         ui.label(
                             RichText::new("No operations yet.")
                                 .size(11.0)
-                                .color(Color32::from_rgb(100, 100, 120)),
+                                .color(theme.subtle_text),
                         );
                     } else {
                         for entry in &dm.log {
                             let color = match entry.kind {
-                                super::state::StatusKind::Info => Color32::from_rgb(150, 150, 180),
-                                super::state::StatusKind::Success => Colors::success(),
-                                super::state::StatusKind::Error => Colors::error(),
+                                super::state::StatusKind::Info => theme.muted_text,
+                                super::state::StatusKind::Success => Colors::success(state.dark_mode),
+                                super::state::StatusKind::Error => Colors::error(state.dark_mode),
                             };
                             let elapsed = entry.timestamp.elapsed().as_secs();
                             let time_str = if elapsed < 60 {
@@ -852,7 +869,7 @@ fn draw_driver_manager(ctx: &egui::Context, state: &mut AppState) -> Vec<GuiActi
                                 ui.label(
                                     RichText::new(&time_str)
                                         .size(10.0)
-                                        .color(Color32::from_rgb(80, 80, 100)),
+                                        .color(theme.dim_text),
                                 );
                                 ui.label(RichText::new(&entry.text).size(11.0).color(color));
                             });
@@ -965,6 +982,7 @@ fn format_address(addr: u64) -> String {
 fn draw_driver_table(ui: &mut egui::Ui, state: &mut AppState, actions: &mut Vec<GuiAction>) {
     ui.spacing_mut().item_spacing = egui::vec2(0.0, 0.0);
     let available_height = ui.available_height();
+    let theme = palette(state.dark_mode);
 
     let row_height = 20.0;
     let font_size = 10.0;
@@ -974,7 +992,7 @@ fn draw_driver_table(ui: &mut egui::Ui, state: &mut AppState, actions: &mut Vec<
     let mark_non_ms = state.mark_non_microsoft;
 
     let grid_color = if show_grid {
-        Color32::from_rgb(40, 40, 55)
+        theme.table_grid
     } else {
         Color32::TRANSPARENT
     };
@@ -1019,9 +1037,9 @@ fn draw_driver_table(ui: &mut egui::Ui, state: &mut AppState, actions: &mut Vec<
                     let indicator = sort_indicator(state, column);
                     let text = format!("{}{}", label, indicator);
                     let color = if state.sort_column == column {
-                        Colors::accent()
+                        Colors::accent(state.dark_mode)
                     } else {
-                        Color32::from_rgb(200, 200, 220)
+                        theme.table_header_text
                     };
 
                     let (rect, response) = ui.allocate_exact_size(
@@ -1031,7 +1049,7 @@ fn draw_driver_table(ui: &mut egui::Ui, state: &mut AppState, actions: &mut Vec<
 
                     // Header background
                     ui.painter()
-                        .rect_filled(rect, 0.0, Color32::from_rgb(35, 35, 55));
+                        .rect_filled(rect, 0.0, theme.table_header_bg);
 
                     // Header text
                     let text_pos = egui::pos2(rect.left() + 4.0, rect.center().y);
@@ -1046,7 +1064,7 @@ fn draw_driver_table(ui: &mut egui::Ui, state: &mut AppState, actions: &mut Vec<
                     // Right border
                     ui.painter().line_segment(
                         [rect.right_top(), rect.right_bottom()],
-                        egui::Stroke::new(1.0, Color32::from_rgb(55, 55, 75)),
+                        egui::Stroke::new(1.0, theme.table_header_border),
                     );
 
                     if response.clicked() {
@@ -1061,7 +1079,7 @@ fn draw_driver_table(ui: &mut egui::Ui, state: &mut AppState, actions: &mut Vec<
                     ui.cursor().left_top(),
                     egui::pos2(ui.cursor().left_top().x + 2200.0, ui.cursor().left_top().y),
                 ],
-                egui::Stroke::new(1.0, Color32::from_rgb(60, 60, 90)),
+                egui::Stroke::new(1.0, theme.table_separator),
             );
 
             // --- Data rows ---
@@ -1105,18 +1123,18 @@ fn draw_driver_table(ui: &mut egui::Ui, state: &mut AppState, actions: &mut Vec<
                 ];
 
                 let row_bg = if is_selected {
-                    Color32::from_rgb(50, 80, 130)
+                    theme.table_selected_row
                 } else if mark_non_ms && !is_microsoft {
                     // Subtle warm tint for non-Microsoft drivers
                     if idx % 2 == 0 {
-                        Color32::from_rgb(32, 28, 22)
+                        theme.table_non_ms_even
                     } else {
-                        Color32::from_rgb(36, 32, 26)
+                        theme.table_non_ms_odd
                     }
                 } else if idx % 2 == 0 {
-                    Color32::from_rgb(22, 22, 32)
+                    theme.table_even_row
                 } else {
-                    Color32::from_rgb(26, 26, 38)
+                    theme.table_odd_row
                 };
 
                 let row_response = ui
@@ -1140,14 +1158,14 @@ fn draw_driver_table(ui: &mut egui::Ui, state: &mut AppState, actions: &mut Vec<
                             // Cell text color
                             let text_color = if col_idx == 0 {
                                 if mark_non_ms && !is_microsoft {
-                                    Color32::from_rgb(220, 200, 150)
+                                    theme.table_non_ms_name_text
                                 } else {
-                                    Color32::from_rgb(240, 240, 240)
+                                    theme.table_primary_text
                                 }
                             } else if col_idx == 1 || col_idx == 2 || col_idx == 13 {
-                                Color32::from_rgb(160, 180, 210)
+                                theme.table_address_text
                             } else {
-                                Color32::from_rgb(190, 190, 200)
+                                theme.table_default_text
                             };
 
                             // Clip text to cell width
@@ -1254,7 +1272,7 @@ fn draw_driver_table(ui: &mut egui::Ui, state: &mut AppState, actions: &mut Vec<
                             egui::pos2(cursor.left(), cursor.top()),
                             egui::pos2(cursor.left() + 2200.0, cursor.top()),
                         ],
-                        egui::Stroke::new(0.5, Color32::from_rgb(35, 35, 50)),
+                        egui::Stroke::new(0.5, theme.table_row_border),
                     );
                 }
             }
@@ -1284,6 +1302,8 @@ fn detail_row_colored(ui: &mut egui::Ui, label: &str, value: &str, color: Color3
 }
 
 fn draw_detail_panel(ui: &mut egui::Ui, state: &AppState, actions: &mut Vec<GuiAction>) {
+    let dark_mode = state.dark_mode;
+    let theme = palette(dark_mode);
     if let Some(driver) = state.selected() {
         let driver_name = driver.name.clone();
         let available_height = ui.available_height();
@@ -1321,8 +1341,8 @@ fn draw_detail_panel(ui: &mut egui::Ui, state: &AppState, actions: &mut Vec<GuiA
 
                     // Status
                     let status_color = match d.status.to_string().as_str() {
-                        "Running" => Colors::running(),
-                        _ => Colors::stopped(),
+                        "Running" => Colors::running(dark_mode),
+                        _ => Colors::stopped(dark_mode),
                     };
                     detail_row_colored(ui, "Status:", &d.status.to_string(), status_color);
 
@@ -1369,9 +1389,9 @@ fn draw_detail_panel(ui: &mut egui::Ui, state: &AppState, actions: &mut Vec<GuiA
                     // Signature
                     if let Some(signed) = d.is_signed {
                         let (text, color) = if signed {
-                            ("Yes", Colors::signed())
+                            ("Yes", Colors::signed(dark_mode))
                         } else {
-                            ("No", Colors::unsigned())
+                            ("No", Colors::unsigned(dark_mode))
                         };
                         detail_row_colored(ui, "Signed:", text, color);
                     }
@@ -1384,13 +1404,13 @@ fn draw_detail_panel(ui: &mut egui::Ui, state: &AppState, actions: &mut Vec<GuiA
 
                 ui.horizontal(|ui| {
                     if ui
-                        .button(RichText::new("Start").size(12.0).color(Colors::success()))
+                        .button(RichText::new("Start").size(12.0).color(Colors::success(dark_mode)))
                         .clicked()
                     {
                         actions.push(GuiAction::StartDriver(driver_name.clone()));
                     }
                     if ui
-                        .button(RichText::new("Stop").size(12.0).color(Colors::warning()))
+                        .button(RichText::new("Stop").size(12.0).color(Colors::warning(dark_mode)))
                         .clicked()
                     {
                         actions.push(GuiAction::StopDriver(driver_name.clone()));
@@ -1408,7 +1428,7 @@ fn draw_detail_panel(ui: &mut egui::Ui, state: &AppState, actions: &mut Vec<GuiA
                         .button(
                             RichText::new("Unregister")
                                 .size(12.0)
-                                .color(Colors::error()),
+                                .color(Colors::error(dark_mode)),
                         )
                         .clicked()
                     {
@@ -1420,7 +1440,7 @@ fn draw_detail_panel(ui: &mut egui::Ui, state: &AppState, actions: &mut Vec<GuiA
         ui.label(
             RichText::new("Select a driver to view details")
                 .size(11.0)
-                .color(Color32::from_rgb(120, 120, 120)),
+                .color(theme.empty_state_text),
         );
     }
 }
